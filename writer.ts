@@ -84,9 +84,6 @@ export class PipelineWriter extends DefaultAnsiWriter {
             case "azdo":
                 this.writeLine(`##vso[task.command]${message} ${args.join(" ")}`);
                 return this;
-            case "github":
-                this.writeLine(`::${message}::${args.join(" ")}`);
-                return this;
             default: {
                 const fmt = `[CMD]: ${message} ${defaultSecretMasker.mask(args.join(" "))}`;
                 if (this.settings.stdout) {
@@ -96,6 +93,35 @@ export class PipelineWriter extends DefaultAnsiWriter {
                 this.writeLine(fmt);
                 return this;
             }
+        }
+    }
+
+    prependPath(path: string): AnsiWriter {
+        env.path.prepend(path);
+
+        switch (CI_PROVIDER) {
+            case "azdo":
+                this.writeLine(`##vso[task.prependpath]${path}`);
+                return this;
+            case "github": {
+                const envPath = env.get("GITHUB_PATH");
+                if (!envPath) {
+                    this.error("GITHUB_PATH not set");
+                    return this;
+                }
+
+                writeTextFileSync(envPath, `path\n`, { append: true });
+                return this;
+            }
+
+            default:
+                {
+                    const envPath = env.get("GNOME_CI_PATH");
+                    if (envPath) {
+                        writeTextFileSync(envPath, `${path}\n`, { append: true });
+                    }
+                }
+                return this;
         }
     }
 
